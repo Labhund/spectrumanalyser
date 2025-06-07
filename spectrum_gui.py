@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import os # To get basename of file for title
+from image_processing import calculate_rgb_row_profiles # MODIFIED: Import the new backend function
 
 class SpectrumAnalyserApp(TkinterDnD.Tk):
     def __init__(self):
@@ -48,7 +49,7 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         # Matplotlib Figure and Axes
         self.fig = Figure(figsize=(7, 5), dpi=100)
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel('Column Index')
+        self.ax.set_xlabel('Row Index') # MODIFIED: Reflects row-based analysis
         self.ax.set_ylabel('Average Pixel Value (0-255)')
         self.ax.set_title('Plot will appear here')
         self.ax.grid(True)
@@ -91,50 +92,49 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
 
     def process_and_display_plot(self, image_path):
         try:
-            # 1. Read the .jpg image
-            img = Image.open(image_path)
-            img_rgb = img.convert("RGB")
-            img_array = np.array(img_rgb)
+            # Call the backend function from image_processing.py
+            plot_data = calculate_rgb_row_profiles(image_path)
 
-            # 2. Get arrays of the R, G, and B channels
-            R_channel = img_array[:, :, 0]
-            G_channel = img_array[:, :, 1]
-            B_channel = img_array[:, :, 2]
+            if plot_data is None:
+                messagebox.showerror("Error", f"Could not process image: {os.path.basename(image_path)}.\nFile might be missing or corrupted.")
+                self.ax.clear()
+                self.ax.set_title('Error processing image')
+                self.ax.set_xlabel('Row Index') # Reset labels
+                self.ax.set_ylabel('Average Pixel Value (0-255)')
+                self.ax.grid(True)
+                self.canvas.draw()
+                return
 
-            # 3. Calculate the average of each vertical column of pixels for each channel
-            avg_R_per_column = np.mean(R_channel, axis=1)
-            avg_G_per_column = np.mean(G_channel, axis=1)
-            avg_B_per_column = np.mean(B_channel, axis=1)
+            indices = plot_data["indices"]
+            avg_R = plot_data["avg_R"]
+            avg_G = plot_data["avg_G"]
+            avg_B = plot_data["avg_B"]
+            x_axis_label = plot_data["x_axis_label"]
+            plot_title_suffix = plot_data["plot_title_suffix"]
 
-            num_columns = img_array.shape[0]
-            column_indices = np.arange(num_columns)
-
-            # 4. Plot the averages on the existing Axes
             self.ax.clear() # Clear previous plot
 
-            self.ax.plot(column_indices, avg_R_per_column, color='red', label='Red Channel Column Avg')
-            self.ax.plot(column_indices, avg_G_per_column, color='green', label='Green Channel Column Avg')
-            self.ax.plot(column_indices, avg_B_per_column, color='blue', label='Blue Channel Column Avg')
+            self.ax.plot(indices, avg_R, color='red', label='Red Channel Avg')
+            self.ax.plot(indices, avg_G, color='green', label='Green Channel Avg')
+            self.ax.plot(indices, avg_B, color='blue', label='Blue Channel Avg')
 
-            self.ax.set_title(f'Average Pixel Value per Column\n{os.path.basename(image_path)}')
-            self.ax.set_xlabel('Column Index')
+            self.ax.set_title(f'Average Pixel Value {plot_title_suffix}\n{os.path.basename(image_path)}')
+            self.ax.set_xlabel(x_axis_label)
             self.ax.set_ylabel('Average Pixel Value (0-255)')
             self.ax.legend()
             self.ax.grid(True)
-            self.ax.invert_xaxis() # Invert x-axis
+            self.ax.invert_xaxis() # Keep original x-axis inversion
 
             self.fig.tight_layout() # Adjust plot to prevent labels from being cut off
             self.canvas.draw()
 
-        except FileNotFoundError:
-            messagebox.showerror("Error", f"The image file '{image_path}' was not found.")
+        except Exception as e: # Catch-all for unexpected issues in GUI part
+            messagebox.showerror("Error", f"An unexpected error occurred in the GUI: {e}")
             self.ax.clear()
-            self.ax.set_title('Error loading image')
-            self.canvas.draw()
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred during processing: {e}")
-            self.ax.clear()
-            self.ax.set_title('Error during processing')
+            self.ax.set_title('Unexpected GUI error')
+            self.ax.set_xlabel('Row Index') # Reset labels
+            self.ax.set_ylabel('Average Pixel Value (0-255)')
+            self.ax.grid(True)
             self.canvas.draw()
 
 if __name__ == "__main__":

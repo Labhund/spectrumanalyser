@@ -1,3 +1,0 @@
-([('spectrum_gui',
-   '/Users/markuswilliams/projects/spectrumanalyser/dist/spectrum_gui',
-   'EXECUTABLE')],)
