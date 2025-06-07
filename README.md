@@ -72,6 +72,9 @@ Drag and drop a `.jpg` or `.jpeg` file (like the one in the `examples/` folder) 
 ### Analysis Settings
 ![Settings Panel](screenshots/settings_demo.png)
 
+## Example input
+![Settings Panel](examples/IMG_5301.jpg)
+
 ## Dependencies
 
 The project relies on the following Python libraries:
