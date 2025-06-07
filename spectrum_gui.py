@@ -8,14 +8,14 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import os
 from image_processing import calculate_rgb_row_profiles, DEFAULT_PEAK_HEIGHT_THRESHOLD, DEFAULT_PEAK_MIN_DISTANCE
-# MODIFIED: Import calculation functions
 from spectrometry_calculations import calculate_wavelength_nm, grating_spacing_from_lines_per_mm
 
 class SpectrumAnalyserApp(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
         self.title("JPG Spectrum Analyser")
-        self.geometry("800x850") # Increased height for more settings
+        # Increased height for new inference settings
+        self.geometry("800x970") 
 
         # Peak detection parameters
         self.peak_height_var = tk.DoubleVar(value=DEFAULT_PEAK_HEIGHT_THRESHOLD)
@@ -23,17 +23,23 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         self.current_height_label_var = tk.StringVar(value=f"{self.peak_height_var.get():.1f}")
         self.current_distance_label_var = tk.StringVar(value=f"{self.peak_distance_var.get():.0f}")
 
-        # MODIFIED: Spectrometer physical parameters
-        self.lines_per_mm_var = tk.DoubleVar(value=600.0) # Example default
-        self.distance_L_mm_var = tk.DoubleVar(value=100.0) # Example default, L in mm
-        self.pixel_size_um_var = tk.DoubleVar(value=2.0)  # Example default, pixel size in micrometers
-        self.zero_order_pixel_var = tk.IntVar(value=0) # User needs to set this, e.g. from plot
+        # Spectrometer physical parameters
+        self.lines_per_mm_var = tk.DoubleVar(value=600.0)
+        self.distance_L_mm_var = tk.DoubleVar(value=100.0)
+        self.pixel_size_um_var = tk.DoubleVar(value=2.0)
+        self.zero_order_pixel_var = tk.IntVar(value=0) # Will be auto-updated
         
         self.current_lines_mm_label_var = tk.StringVar(value=f"{self.lines_per_mm_var.get():.0f}")
         self.current_distance_L_label_var = tk.StringVar(value=f"{self.distance_L_mm_var.get():.1f}")
         self.current_pixel_size_label_var = tk.StringVar(value=f"{self.pixel_size_um_var.get():.2f}")
         self.current_zero_order_label_var = tk.StringVar(value=f"{self.zero_order_pixel_var.get()}")
 
+        # NEW: Pixel Size Inference Parameters
+        self.known_sensor_distance_mm_var = tk.DoubleVar(value=5.0) # Example: 5mm distance on sensor
+        self.pixel_for_known_distance_var = tk.IntVar(value=0) # Example: pixel index of the peak 5mm away
+        
+        self.current_known_sensor_dist_label_var = tk.StringVar(value=f"{self.known_sensor_distance_mm_var.get():.2f}")
+        self.current_pixel_for_known_dist_label_var = tk.StringVar(value=f"{self.pixel_for_known_distance_var.get()}")
 
         # Style
         style = ttk.Style(self)
@@ -115,6 +121,27 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         zero_order_entry.bind("<Return>", self.on_settings_changed)
         zero_order_entry.bind("<FocusOut>", self.on_settings_changed)
         ttk.Label(self.settings_frame, textvariable=self.current_zero_order_label_var, width=5).grid(row=7, column=2, padx=5, pady=3, sticky="w")
+
+        # NEW: Pixel Size Inference UI Elements
+        infer_settings_label = ttk.Label(self.settings_frame, text="Pixel Size Inference:", font=("Arial", 10, "bold"))
+        infer_settings_label.grid(row=8, column=0, columnspan=3, padx=5, pady=(10,2), sticky="w")
+
+        ttk.Label(self.settings_frame, text="Sensor Dist (0-order to peak, mm):").grid(row=9, column=0, padx=5, pady=3, sticky="w")
+        known_dist_entry = ttk.Entry(self.settings_frame, textvariable=self.known_sensor_distance_mm_var, width=8)
+        known_dist_entry.grid(row=9, column=1, padx=5, pady=3, sticky="w")
+        known_dist_entry.bind("<Return>", self.on_settings_changed) # For label update
+        known_dist_entry.bind("<FocusOut>", self.on_settings_changed) # For label update
+        ttk.Label(self.settings_frame, textvariable=self.current_known_sensor_dist_label_var, width=5).grid(row=9, column=2, padx=5, pady=3, sticky="w")
+
+        ttk.Label(self.settings_frame, text="Pixel Index of this Peak:").grid(row=10, column=0, padx=5, pady=3, sticky="w")
+        pixel_for_dist_entry = ttk.Entry(self.settings_frame, textvariable=self.pixel_for_known_distance_var, width=8)
+        pixel_for_dist_entry.grid(row=10, column=1, padx=5, pady=3, sticky="w")
+        pixel_for_dist_entry.bind("<Return>", self.on_settings_changed) # For label update
+        pixel_for_dist_entry.bind("<FocusOut>", self.on_settings_changed) # For label update
+        ttk.Label(self.settings_frame, textvariable=self.current_pixel_for_known_dist_label_var, width=5).grid(row=10, column=2, padx=5, pady=3, sticky="w")
+        
+        infer_pixel_size_button = ttk.Button(self.settings_frame, text="Infer Pixel Size", command=self.infer_pixel_size_action)
+        infer_pixel_size_button.grid(row=11, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
         
         self.settings_frame.columnconfigure(1, weight=1) # Make middle column expandable
 
@@ -201,12 +228,48 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
             self.current_distance_L_label_var.set(f"{self.distance_L_mm_var.get():.1f}")
             self.current_pixel_size_label_var.set(f"{self.pixel_size_um_var.get():.2f}")
             self.current_zero_order_label_var.set(f"{self.zero_order_pixel_var.get()}")
+            # NEW: Update inference labels
+            self.current_known_sensor_dist_label_var.set(f"{self.known_sensor_distance_mm_var.get():.2f}")
+            self.current_pixel_for_known_dist_label_var.set(f"{self.pixel_for_known_distance_var.get()}")
+
         except tk.TclError:
             # Can happen if entry field has invalid text during typing
-            pass # Values will update on FocusOut or Return
+            pass 
 
-        if self.current_image_path:
+        if self.current_image_path: # Re-process if settings change and image is loaded
             self.process_and_display_plot(self.current_image_path)
+
+    # NEW: Action for the "Infer Pixel Size" button
+    def infer_pixel_size_action(self, event=None):
+        try:
+            known_dist_mm = self.known_sensor_distance_mm_var.get()
+            pixel_at_known_dist = self.pixel_for_known_distance_var.get()
+            zero_order_pix_val = self.zero_order_pixel_var.get()
+
+            if known_dist_mm <= 0:
+                messagebox.showerror("Error", "Sensor Distance (mm) must be positive.")
+                return
+
+            pixel_delta = abs(pixel_at_known_dist - zero_order_pix_val)
+            if pixel_delta == 0:
+                messagebox.showerror("Error", "Pixel Index of this Peak cannot be the same as Zero-Order Peak pixel.")
+                return
+
+            calculated_pixel_size_um = (known_dist_mm * 1000.0) / pixel_delta
+            self.pixel_size_um_var.set(round(calculated_pixel_size_um, 4))
+            
+            # Update the label for pixel size immediately and trigger full update
+            self.current_pixel_size_label_var.set(f"{self.pixel_size_um_var.get():.2f}")
+            messagebox.showinfo("Success", f"Pixel size inferred and updated: {calculated_pixel_size_um:.4f} µm/pixel.")
+            
+            # Trigger a replot with the new pixel size
+            if self.current_image_path:
+                self.process_and_display_plot(self.current_image_path)
+
+        except tk.TclError as e:
+            messagebox.showerror("Input Error", f"Invalid input for pixel size inference: {e}")
+        except Exception as e:
+            messagebox.showerror("Calculation Error", f"Could not infer pixel size: {e}")
 
 
     def process_and_display_plot(self, image_path):
@@ -214,17 +277,6 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
             # Peak detection parameters
             current_peak_height = self.peak_height_var.get()
             current_peak_distance = self.peak_distance_var.get()
-
-            # Spectrometer parameters
-            lines_per_mm = self.lines_per_mm_var.get()
-            L_mm = self.distance_L_mm_var.get()
-            pixel_size_um = self.pixel_size_um_var.get()
-            zero_order_pix = self.zero_order_pixel_var.get()
-
-            # Convert to meters for calculation
-            d_meters = grating_spacing_from_lines_per_mm(lines_per_mm)
-            L_meters = L_mm / 1000.0 if L_mm is not None else None
-            pixel_scale_m_px = pixel_size_um / 1e6 if pixel_size_um is not None else None
             
             # Perform image processing to get peaks
             plot_data = calculate_rgb_row_profiles(
@@ -248,10 +300,42 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
             avg_G = plot_data["avg_G"]
             avg_B = plot_data["avg_B"]
             
-            # MODIFIED: Get peak data
             peaks_R_data = plot_data["peaks_R"]
             peaks_G_data = plot_data["peaks_G"]
             peaks_B_data = plot_data["peaks_B"]
+
+            # NEW: Auto-detect Zero-Order Peak
+            max_overall_height = -1.0
+            auto_detected_zero_order_pixel = None
+
+            all_peaks_data = [
+                (peaks_R_data["indices"], peaks_R_data["heights"]),
+                (peaks_G_data["indices"], peaks_G_data["heights"]),
+                (peaks_B_data["indices"], peaks_B_data["heights"]),
+            ]
+
+            for peak_indices, peak_heights in all_peaks_data:
+                if len(peak_indices) > 0:
+                    current_max_height_idx = np.argmax(peak_heights)
+                    current_max_height = peak_heights[current_max_height_idx]
+                    if current_max_height > max_overall_height:
+                        max_overall_height = current_max_height
+                        auto_detected_zero_order_pixel = peak_indices[current_max_height_idx]
+            
+            if auto_detected_zero_order_pixel is not None:
+                self.zero_order_pixel_var.set(auto_detected_zero_order_pixel)
+                self.current_zero_order_label_var.set(f"{auto_detected_zero_order_pixel}") # Update label directly
+
+            # Now get spectrometer parameters, including the potentially auto-updated zero_order_pixel
+            lines_per_mm = self.lines_per_mm_var.get()
+            L_mm = self.distance_L_mm_var.get()
+            pixel_size_um = self.pixel_size_um_var.get()
+            zero_order_pix = self.zero_order_pixel_var.get() # This will use the auto-detected value if found
+
+            # Convert to meters for calculation
+            d_meters = grating_spacing_from_lines_per_mm(lines_per_mm)
+            L_meters = L_mm / 1000.0 if L_mm is not None else None
+            pixel_scale_m_px = pixel_size_um / 1e6 if pixel_size_um is not None else None
 
             x_axis_label = plot_data["x_axis_label"]
             plot_title_suffix = plot_data["plot_title_suffix"]
@@ -313,7 +397,8 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
                     peak_hgt = peaks_data["heights"][i]
                     
                     wavelength = None
-                    if d_meters and L_meters and pixel_scale_m_px and zero_order_pix is not None:
+                    # Ensure all necessary parameters for wavelength calculation are valid
+                    if d_meters and L_meters and pixel_scale_m_px and zero_order_pix is not None and pixel_scale_m_px > 0:
                         wavelength = calculate_wavelength_nm(
                             peak_pixel_index=peak_idx,
                             zero_order_pixel_index=zero_order_pix,
