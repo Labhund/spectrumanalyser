@@ -6,8 +6,14 @@ A simple Python application that displays the average Red, Green, and Blue (RGB)
 
 *   Drag and drop interface for JPG/JPEG files.
 *   Calculates and plots the average pixel value for R, G, and B channels per row.
+*   Detects peaks in each color channel.
+*   Automatically identifies the zero-order diffraction peak based on the highest intensity peak.
+*   Allows users to infer pixel size by inputting a known physical distance on the sensor between the zero-order peak and another peak, along with the corresponding pixel indices.
+*   Calculates and displays wavelengths for detected peaks.
+*   Adjustable peak detection parameters (height threshold, minimum distance).
+*   Adjustable spectrometer parameters (grating lines/mm, grating-to-sensor distance, pixel size).
 *   Uses Tkinter for the GUI and Matplotlib for plotting.
-*   Clear separation of image processing logic and GUI.
+*   Clear separation of image processing, spectrometry calculations, and GUI logic.
 
 ## Directory Structure
 
@@ -15,6 +21,7 @@ A simple Python application that displays the average Red, Green, and Blue (RGB)
 spectrumanalyser/
 ├── spectrum_gui.py        # Main Tkinter GUI application
 ├── image_processing.py    # Backend image processing logic
+├── spectrometry_calculations.py # Backend spectrometry calculation logic
 ├── requirements.txt       # Python package dependencies
 └── README.md              # This file
 ```
@@ -62,4 +69,5 @@ The project relies on the following Python libraries:
 *   **NumPy**: For numerical operations, especially array handling for pixel data.
 *   **Matplotlib**: For creating and embedding plots in the GUI.
 *   **TkinterDnD2**: To enable drag-and-drop functionality in Tkinter.
+*   **SciPy**: For scientific computing, specifically `find_peaks` for peak detection.
 *   **Tkinter**: (Usually included with Python) For the graphical user interface.
