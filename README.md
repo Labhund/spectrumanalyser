@@ -19,9 +19,12 @@ A simple Python application that displays the average Red, Green, and Blue (RGB)
 
 ```
 spectrumanalyser/
-├── spectrum_gui.py        # Main Tkinter GUI application
-├── image_processing.py    # Backend image processing logic
-├── spectrometry_calculations.py # Backend spectrometry calculation logic
+├── src/
+│   ├── spectrum_gui.py        # Main Tkinter GUI application
+│   ├── image_processing.py    # Backend image processing logic
+│   └── spectrometry_calculations.py # Backend spectrometry calculation logic
+├── examples/
+│   └── IMG_5301.jpg         # Example image
 ├── requirements.txt       # Python package dependencies
 └── README.md              # This file
 ```
@@ -53,13 +56,13 @@ spectrumanalyser/
 
 ## How to Run
 
-Execute the main GUI script:
+Execute the main GUI script from the root `spectrumanalyser` directory:
 
 ```bash
-python spectrum_gui.py
+python src/spectrum_gui.py
 ```
 
-Drag and drop a `.jpg` or `.jpeg` file onto the designated area in the application window to see the spectrum plot.
+Drag and drop a `.jpg` or `.jpeg` file (like the one in the `examples/` folder) onto the designated area in the application window to see the spectrum plot.
 
 ## Dependencies
 
