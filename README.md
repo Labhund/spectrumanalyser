@@ -15,6 +15,26 @@ A simple Python application that displays the average Red, Green, and Blue (RGB)
 *   Uses Tkinter for the GUI and Matplotlib for plotting.
 *   Clear separation of image processing, spectrometry calculations, and GUI logic.
 
+## Spectrometer Design
+
+This software is designed for a simple paper tube reflection grating spectrometer:
+- Light enters through a slit cut in rolled paper tube
+- Camera with diffraction grating positioned directly opposite the intake slit
+- The intake slit appears as the zero-order diffraction line (brightest band)
+- Spectral lines appear at various distances from the zero-order line
+
+## Spectrometer Parameters
+
+- **Grating lines/mm**: Lines per millimeter on your diffraction grating
+- **L(grating-sensor, mm)**: The distance from the diffraction grating to the intake slit (diameter of your paper tube)
+- **Pixel size (μm)**: Physical pixel size of your camera sensor
+
+## Geometry
+Each spectral line forms a right triangle where:
+- One leg = distance from zero-order to spectral line (in pixels × pixel size)
+- Other leg = L(grating-sensor) distance
+- Hypotenuse = light path from grating to spectral line
+
 ## Directory Structure
 
 ```
