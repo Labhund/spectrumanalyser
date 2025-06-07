@@ -7,7 +7,7 @@ from scipy.signal import find_peaks # MODIFIED: Import find_peaks
 # Height: Minimum intensity of a peak.
 # Distance: Minimum horizontal distance (in row indices) between peaks.
 DEFAULT_PEAK_HEIGHT_THRESHOLD = 2.5  # Adjusted for typical signal noise
-DEFAULT_PEAK_MIN_DISTANCE = 200       # Adjusted to separate distinct peaks
+DEFAULT_PEAK_MIN_DISTANCE = 150       # Adjusted to separate distinct peaks
 
 def calculate_rgb_row_profiles(image_path, peak_height_threshold=DEFAULT_PEAK_HEIGHT_THRESHOLD, peak_min_distance=DEFAULT_PEAK_MIN_DISTANCE):
     """
