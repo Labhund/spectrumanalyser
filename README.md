@@ -64,6 +64,14 @@ python src/spectrum_gui.py
 
 Drag and drop a `.jpg` or `.jpeg` file (like the one in the `examples/` folder) onto the designated area in the application window to see the spectrum plot.
 
+## Screenshots
+
+### Main Interface
+![Main Interface](screenshots/interface_demo.png)
+
+### Analysis Settings
+![Settings Panel](screenshots/settings_demo.png)
+
 ## Dependencies
 
 The project relies on the following Python libraries:
