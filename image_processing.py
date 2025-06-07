@@ -1,15 +1,24 @@
 from PIL import Image
 import numpy as np
-# Removed: import matplotlib.pyplot as plt
-# Removed: import sys
+from scipy.signal import find_peaks # MODIFIED: Import find_peaks
 
-def calculate_rgb_row_profiles(image_path):
+# MODIFIED: Define default parameters for peak detection
+# These can be adjusted for sensitivity.
+# Height: Minimum intensity of a peak.
+# Distance: Minimum horizontal distance (in row indices) between peaks.
+DEFAULT_PEAK_HEIGHT_THRESHOLD = 2.5  # Adjusted for typical signal noise
+DEFAULT_PEAK_MIN_DISTANCE = 200       # Adjusted to separate distinct peaks
+
+def calculate_rgb_row_profiles(image_path, peak_height_threshold=DEFAULT_PEAK_HEIGHT_THRESHOLD, peak_min_distance=DEFAULT_PEAK_MIN_DISTANCE):
     """
-    Reads a JPG image, extracts R, G, B channels, and calculates the average
-    pixel value for each horizontal row for each channel.
+    Reads a JPG image, extracts R, G, B channels, calculates the average
+    pixel value for each horizontal row, and finds peaks in these profiles.
 
     Args:
         image_path (str): The path to the JPG image file.
+        peak_height_threshold (float): Minimum height for a peak to be detected.
+        peak_min_distance (int): Minimum horizontal distance (in samples)
+                                 between neighbouring peaks.
 
     Returns:
         dict: A dictionary containing the processed data:
@@ -18,6 +27,9 @@ def calculate_rgb_row_profiles(image_path):
                   "avg_R": numpy.ndarray (average red values per row),
                   "avg_G": numpy.ndarray (average green values per row),
                   "avg_B": numpy.ndarray (average blue values per row),
+                  "peaks_R": {"indices": numpy.ndarray, "heights": numpy.ndarray}, # MODIFIED
+                  "peaks_G": {"indices": numpy.ndarray, "heights": numpy.ndarray}, # MODIFIED
+                  "peaks_B": {"indices": numpy.ndarray, "heights": numpy.ndarray}, # MODIFIED
                   "x_axis_label": str (label for the x-axis, e.g., "Row Index"),
                   "plot_title_suffix": str (suffix for the plot title, e.g., "per Row")
               }
@@ -42,11 +54,20 @@ def calculate_rgb_row_profiles(image_path):
         num_rows = img_array.shape[0]  # This is the height of the image
         row_indices = np.arange(num_rows)
 
+        # MODIFIED: Find peaks for each channel
+        peaks_r_indices, _ = find_peaks(avg_R_per_row, height=peak_height_threshold, distance=peak_min_distance)
+        peaks_g_indices, _ = find_peaks(avg_G_per_row, height=peak_height_threshold, distance=peak_min_distance)
+        peaks_b_indices, _ = find_peaks(avg_B_per_row, height=peak_height_threshold, distance=peak_min_distance)
+
         return {
             "indices": row_indices,
             "avg_R": avg_R_per_row,
             "avg_G": avg_G_per_row,
             "avg_B": avg_B_per_row,
+            # MODIFIED: Include peak data in the return dictionary
+            "peaks_R": {"indices": peaks_r_indices, "heights": avg_R_per_row[peaks_r_indices]},
+            "peaks_G": {"indices": peaks_g_indices, "heights": avg_G_per_row[peaks_g_indices]},
+            "peaks_B": {"indices": peaks_b_indices, "heights": avg_B_per_row[peaks_b_indices]},
             "x_axis_label": "Row Index",
             "plot_title_suffix": "per Row"
         }

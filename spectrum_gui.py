@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog # MODIFIED: Added filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from PIL import Image, ImageTk # ImageTk for displaying image if needed, Image for processing
 import numpy as np
@@ -24,7 +24,7 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Drop target label
-        self.drop_label_text = tk.StringVar(value="Drag and drop a .jpg file here")
+        self.drop_label_text = tk.StringVar(value="Drag and drop a .jpg file here, or click to browse") # MODIFIED text
         drop_target = ttk.Label(
             main_frame,
             textvariable=self.drop_label_text,
@@ -40,6 +40,7 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         drop_target.dnd_bind('<<Drop>>', self.handle_drop)
         drop_target.dnd_bind('<<DragEnter>>', self.handle_drag_enter)
         drop_target.dnd_bind('<<DragLeave>>', self.handle_drag_leave)
+        drop_target.bind('<Button-1>', self.handle_click_to_browse) # MODIFIED: Added click binding
 
 
         # Frame for the plot
@@ -71,12 +72,12 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
 
 
     def handle_drag_leave(self, event):
-        self.drop_label_text.set("Drag and drop a .jpg file here")
+        self.drop_label_text.set("Drag and drop a .jpg file here, or click to browse") # MODIFIED text
         event.widget.config(background=ttk.Style().lookup('TLabel', 'background'))
 
 
     def handle_drop(self, event):
-        self.drop_label_text.set("Drag and drop a .jpg file here")
+        self.drop_label_text.set("Drag and drop a .jpg file here, or click to browse") # MODIFIED text
         event.widget.config(background=ttk.Style().lookup('TLabel', 'background'))
         # event.data often comes with curly braces on some systems, clean it
         file_path = event.data
@@ -90,9 +91,26 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
         self.current_image_path = file_path
         self.process_and_display_plot(file_path)
 
+    def handle_click_to_browse(self, event):
+        """Handles click on the drop label to open a file dialog."""
+        file_path = filedialog.askopenfilename(
+            title="Select a JPG/JPEG image",
+            filetypes=(("JPEG files", "*.jpg *.jpeg"), ("All files", "*.*"))
+        )
+        if file_path: # If a file was selected
+            if not file_path.lower().endswith(('.jpg', '.jpeg')):
+                messagebox.showerror("Error", "Please select a .jpg or .jpeg file.")
+                return
+            self.current_image_path = file_path
+            self.process_and_display_plot(file_path)
+        # Reset label text in case it was changed by drag events
+        self.drop_label_text.set("Drag and drop a .jpg file here, or click to browse")
+
+
     def process_and_display_plot(self, image_path):
         try:
             # Call the backend function from image_processing.py
+            # Peak detection parameters from image_processing.py defaults will be used
             plot_data = calculate_rgb_row_profiles(image_path)
 
             if plot_data is None:
@@ -109,6 +127,12 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
             avg_R = plot_data["avg_R"]
             avg_G = plot_data["avg_G"]
             avg_B = plot_data["avg_B"]
+            
+            # MODIFIED: Get peak data
+            peaks_R_data = plot_data["peaks_R"]
+            peaks_G_data = plot_data["peaks_G"]
+            peaks_B_data = plot_data["peaks_B"]
+
             x_axis_label = plot_data["x_axis_label"]
             plot_title_suffix = plot_data["plot_title_suffix"]
 
@@ -117,6 +141,46 @@ class SpectrumAnalyserApp(TkinterDnD.Tk):
             self.ax.plot(indices, avg_R, color='red', label='Red Channel Avg')
             self.ax.plot(indices, avg_G, color='green', label='Green Channel Avg')
             self.ax.plot(indices, avg_B, color='blue', label='Blue Channel Avg')
+
+            # MODIFIED: Annotate peaks
+            peak_label_offset_points = 5 # Offset for the label text in points
+            peak_marker_size = 5
+
+            # Annotate Red channel peaks
+            for i in range(len(peaks_R_data["indices"])):
+                peak_idx = peaks_R_data["indices"][i] # This is the row index
+                peak_hgt = peaks_R_data["heights"][i]
+                self.ax.plot(peak_idx, peak_hgt, 'x', color='maroon', markersize=peak_marker_size) 
+                self.ax.annotate(f'{peak_idx}', # Text to display (row index)
+                                 xy=(peak_idx, peak_hgt), # Point to annotate
+                                 xytext=(0, peak_label_offset_points), # Offset in points from the point
+                                 textcoords='offset points',
+                                 ha='center', va='bottom', # Alignment of text
+                                 fontsize=8, color='maroon')
+
+            # Annotate Green channel peaks
+            for i in range(len(peaks_G_data["indices"])):
+                peak_idx = peaks_G_data["indices"][i]
+                peak_hgt = peaks_G_data["heights"][i]
+                self.ax.plot(peak_idx, peak_hgt, 'x', color='darkgreen', markersize=peak_marker_size)
+                self.ax.annotate(f'{peak_idx}',
+                                 xy=(peak_idx, peak_hgt),
+                                 xytext=(0, peak_label_offset_points),
+                                 textcoords='offset points',
+                                 ha='center', va='bottom',
+                                 fontsize=8, color='darkgreen')
+
+            # Annotate Blue channel peaks
+            for i in range(len(peaks_B_data["indices"])):
+                peak_idx = peaks_B_data["indices"][i]
+                peak_hgt = peaks_B_data["heights"][i]
+                self.ax.plot(peak_idx, peak_hgt, 'x', color='navy', markersize=peak_marker_size)
+                self.ax.annotate(f'{peak_idx}',
+                                 xy=(peak_idx, peak_hgt),
+                                 xytext=(0, peak_label_offset_points),
+                                 textcoords='offset points',
+                                 ha='center', va='bottom',
+                                 fontsize=8, color='navy')
 
             self.ax.set_title(f'Average Pixel Value {plot_title_suffix}\n{os.path.basename(image_path)}')
             self.ax.set_xlabel(x_axis_label)
